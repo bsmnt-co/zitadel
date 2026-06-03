@@ -111,28 +111,15 @@ export function UsernameForm({
             {...register("loginName", { required: t("required.loginName") })}
             label={inputLabel}
             data-testid="username-text-input"
-            suffix={suffix}
           />
           {allowRegister && (
-            <button
+            <a
               className="hover:text-primary-light-500 dark:hover:text-primary-dark-500 text-sm transition-all"
-              onClick={() => {
-                const registerParams = new URLSearchParams();
-                if (organization) {
-                  registerParams.append("organization", organization);
-                }
-                if (requestId) {
-                  registerParams.append("requestId", requestId);
-                }
-
-                router.push("/register?" + registerParams);
-              }}
-              type="button"
-              disabled={loading}
+              href={process.env.NEXT_PUBLIC_SCOOPY_SIGNUP_URL ?? "https://scoopy.zone/signup"}
               data-testid="register-button"
             >
               <Translated i18nKey="register" namespace="loginname" />
-            </button>
+            </a>
           )}
         </div>
 

@@ -16,6 +16,7 @@ import { Organization } from "@zitadel/proto/zitadel/org/v2/org_pb";
 import { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("register");
@@ -29,6 +30,12 @@ export default async function Page(props: { searchParams: Promise<Record<string 
 
   const _headers = await headers();
   const { serviceConfig } = getServiceConfig(_headers);
+
+  const signupUrl = process.env.NEXT_PUBLIC_SCOOPY_SIGNUP_URL ?? "https://scoopy.zone/signup";
+
+  if (!requestId) {
+    redirect(signupUrl);
+  }
 
   if (!organization) {
     const org: Organization | null = await getDefaultOrg({ serviceConfig });
