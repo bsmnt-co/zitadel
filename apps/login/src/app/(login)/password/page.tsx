@@ -21,7 +21,7 @@ export default async function Page(props: { searchParams: Promise<Record<string 
   let { loginName, organization, requestId } = searchParams;
 
   const _headers = await headers();
-  const { serviceConfig } = getServiceConfig(_headers);
+  const { serviceConfig } = getServiceConfig(_headers); 
 
   let defaultOrganization;
   if (!organization) {
@@ -46,6 +46,9 @@ export default async function Page(props: { searchParams: Promise<Record<string 
     // ignore error to continue to show the password form
     console.warn(error);
   }
+
+  const resolvedLoginName = loginName ?? sessionFactors?.factors?.user?.loginName;
+  const displayLoginName = resolvedLoginName?.replace(/@scoopy\.zone$/, "");
 
   const branding = await getBrandingSettings({
     serviceConfig,
@@ -74,7 +77,7 @@ export default async function Page(props: { searchParams: Promise<Record<string 
             searchParams={searchParams}
           ></UserAvatar>
         ) : loginName ? (
-          <UserAvatar loginName={loginName} displayName={loginName} showDropdown searchParams={searchParams}></UserAvatar>
+          <UserAvatar loginName={displayLoginName} displayName={displayLoginName} showDropdown searchParams={searchParams}></UserAvatar>
         ) : null}
       </div>
 
