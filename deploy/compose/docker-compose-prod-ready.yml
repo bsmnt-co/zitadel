@@ -1,0 +1,103 @@
+name: zitadel
+
+services:
+  zitadel:
+    image: ghcr.io/zitadel/zitadel:v4.15.1
+    restart: unless-stopped
+    command: start-from-init --masterkey ${ZITADEL_MASTER_KEY}
+    environment:
+      ZITADEL_PORT: 8083
+      ZITADEL_EXTERNALDOMAIN: ${ZITADEL_EXTERNALDOMAIN}
+      ZITADEL_EXTERNALPORT: 443
+      ZITADEL_EXTERNALSECURE: true
+      ZITADEL_TLS_ENABLED: false
+      ZITADEL_DATABASE_POSTGRES_DSN: "postgresql://zitadel:${ZITADEL_DATABASE_POSTGRES_USER_PASSWORD}@db:5432/zitadel?sslmode=disable"
+
+      ZITADEL_FIRSTINSTANCE_ORG_HUMAN_PASSWORDCHANGEREQUIRED: true
+      ZITADEL_FIRSTINSTANCE_LOGINCLIENTPATPATH: /zitadel/login-client.pat
+      ZITADEL_FIRSTINSTANCE_ORG_LOGINCLIENT_MACHINE_USERNAME: login-client
+      ZITADEL_FIRSTINSTANCE_ORG_LOGINCLIENT_MACHINE_NAME: Automatically Initialized IAM_LOGIN_CLIENT
+      ZITADEL_FIRSTINSTANCE_ORG_LOGINCLIENT_PAT_EXPIRATIONDATE: "2099-01-01T00:00:00Z"
+
+      ZITADEL_DEFAULTINSTANCE_FEATURES_LOGINV2_REQUIRED: true
+      ZITADEL_DEFAULTINSTANCE_FEATURES_LOGINV2_BASEURI: ${ZITADEL_ISSUER}/ui/v2/login/
+      ZITADEL_OIDC_DEFAULTLOGINURLV2: ${ZITADEL_ISSUER}/ui/v2/login/login?authRequest=
+      ZITADEL_OIDC_DEFAULTLOGOUTURLV2: ${ZITADEL_ISSUER}/ui/v2/login/logout?post_logout_redirect=
+      ZITADEL_SAML_DEFAULTLOGINURLV2: ${ZITADEL_ISSUER}/ui/v2/login/login?samlRequest=
+    healthcheck:
+      test: ["CMD", "/app/zitadel", "ready"]
+      interval: 10s
+      timeout: 30s
+      retries: 12
+      start_period: 20s
+    volumes:
+      - ./:/zitadel:rw
+    networks:
+      zitadel:
+        aliases:
+          - zitadel-external-tls
+      db:
+        aliases:
+          - zitadel-external-tls
+      nginx_external:
+        aliases:
+          - zitadel-external-tls
+    depends_on:
+      db:
+        condition: service_healthy
+
+  login:
+    image: basement-zitadel-login:1.0.0
+    restart: unless-stopped
+    user: "0"
+    environment:
+      ZITADEL_API_URL: http://zitadel-external-tls:8083
+      NEXT_PUBLIC_BASE_PATH: /ui/v2/login
+      ZITADEL_SERVICE_USER_TOKEN_FILE: /zitadel/login-client.pat
+      CUSTOM_REQUEST_HEADERS: "Host: ${ZITADEL_EXTERNALDOMAIN}" 
+      EMAIL_VERIFICATION: "true"
+    healthcheck:
+      test: ["CMD", "/bin/sh", "-c", "node /app/healthcheck.mjs http://localhost:3000/ui/v2/login/healthy"]
+      interval: 10s
+      timeout: 30s
+      retries: 12
+      start_period: 20s
+    volumes:
+      - ./:/zitadel:ro
+    networks:
+      zitadel:
+        aliases:
+          - login-external-tls
+      db:
+      nginx_external:
+    depends_on:
+      zitadel:
+        condition: service_healthy
+
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: zitadel
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${ZITADEL_DATABASE_POSTGRES_ADMIN_PASSWORD}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -d zitadel -U postgres"]
+      interval: 10s
+      timeout: 30s
+      retries: 10
+      start_period: 20s
+    networks: 
+      - db
+      - zitadel
+    volumes:
+      - data:/var/lib/postgresql/data:rw
+
+networks:
+  db:
+  zitadel:
+  nginx_external:
+    external: true
+
+volumes:
+  data:
